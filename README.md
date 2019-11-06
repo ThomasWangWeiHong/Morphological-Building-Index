@@ -9,3 +9,5 @@ Requirements:
 - numpy
 - rasterio
 - skimage
+
+![alt text](https://github.com/ThomasWangWeiHong/Morphological-Building-Index/blob/master/Test.jpg)
