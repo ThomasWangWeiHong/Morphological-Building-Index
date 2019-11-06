@@ -10,4 +10,11 @@ Requirements:
 - rasterio
 - skimage
 
+Test Image (Courtesy of USGS NAIP):
 ![alt text](https://github.com/ThomasWangWeiHong/Morphological-Building-Index/blob/master/Test.jpg)
+
+Thresholed MBI Image:
+![alt text](https://github.com/ThomasWangWeiHong/Morphological-Building-Index/blob/master/MBI_T5.JPG)
+
+Thresholded MSI Image:
+![alt text](https://github.com/ThomasWangWeiHong/Morphological-Building-Index/blob/master/MSI_T5.JPG)
