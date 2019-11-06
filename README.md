@@ -7,5 +7,5 @@ by Xin Huang and Liangpei Zhang (2012).
 
 Requirements:
 - numpy
-- gdal
+- rasterio
 - skimage
