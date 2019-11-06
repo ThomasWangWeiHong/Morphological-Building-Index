@@ -1,5 +1,5 @@
 import numpy as np
-from osgeo import gdal
+import rasterio
 from skimage.morphology import black_tophat, square, white_tophat
 from skimage.transform import rotate
 
@@ -22,23 +22,16 @@ def grayscale_raster_creation(input_MSfile, output_filename):
     
     """
     
-    image = np.transpose(gdal.Open(input_MSfile).ReadAsArray(), [1, 2, 0])
-    gray = np.zeros((int(image.shape[0]), int(image.shape[1])))
+    with rasterio.open(input_MSfile) as f:
+        metadata = f.profile
+        img = np.transpose(f.read(tuple(np.arange(metadata['count']) + 1)), [1, 2, 0])[:, :, 0 : 3]
     
-    for i in range(image.shape[0]):
-        for j in range(image.shape[1]):
-            gray[i, j] = max(image[i, j, 0], image[i, j, 1], image[i, j, 2])
+    gray = np.max(img, axis = 2).astype(metadata['dtype'])
     
-    input_dataset = gdal.Open(input_MSfile)
-    input_band = input_dataset.GetRasterBand(1)
-    gtiff_driver = gdal.GetDriverByName('GTiff')
-    output_dataset = gtiff_driver.Create(output_filename, input_band.XSize, input_band.YSize, 1, gdal.GDT_Float32)
-    output_dataset.SetProjection(input_dataset.GetProjection())
-    output_dataset.SetGeoTransform(input_dataset.GetGeoTransform())
-    output_dataset.GetRasterBand(1).WriteArray(gray)
+    metadata['count'] = 1
     
-    output_dataset.FlushCache()
-    del output_dataset
+    with rasterio.open(output_filename, 'w', **metadata) as dst:
+        dst.write(gray[np.newaxis, :, :])
     
     return gray
 
@@ -71,7 +64,10 @@ def MBI_MSI_calculation_and_feature_map_creation(input_grayfile, output_MBIname,
     if s_min < 3:
         raise ValueError('s_min must be greater than or equal to 3.')
     
-    gray = gdal.Open(input_grayfile).ReadAsArray()    
+    with rasterio.open(input_grayfile) as f:
+        metadata = f.profile
+        gray = f.read(1)
+    
     MP_MBI_list = []
     MP_MSI_list = []
     DMP_MBI_list = []
@@ -117,34 +113,19 @@ def MBI_MSI_calculation_and_feature_map_creation(input_grayfile, output_MBIname,
             DMP_MSI_1 = np.absolute(MP_MSI_list[j] - MP_MSI_list[j - 4])
             DMP_MSI_list.append(DMP_MSI_1)
 
-    MBI = np.sum(DMP_MBI_list, axis = 0) / (4 * (((s_max - s_min) / delta_s) + 1))
+    MBI = (np.sum(DMP_MBI_list, axis = 0) / (4 * (((s_max - s_min) / delta_s) + 1))).astype(np.float32)
     
     if calc_MSI:
-        MSI = np.sum(DMP_MSI_list, axis = 0) / (4 * (((s_max - s_min) / delta_s) + 1))
+        MSI = (np.sum(DMP_MSI_list, axis = 0) / (4 * (((s_max - s_min) / delta_s) + 1))).astype(np.float32)
     
+    metadata['dtype'] = 'float32'
     if write_MBI:
-        input_dataset = gdal.Open(input_grayfile)
-        input_band = input_dataset.GetRasterBand(1)
-        gtiff_driver = gdal.GetDriverByName('GTiff')
-        output_dataset = gtiff_driver.Create(output_MBIname, input_band.XSize, input_band.YSize, 1, gdal.GDT_Float32)
-        output_dataset.SetProjection(input_dataset.GetProjection())
-        output_dataset.SetGeoTransform(input_dataset.GetGeoTransform())
-        output_dataset.GetRasterBand(1).WriteArray(MBI)
-    
-        output_dataset.FlushCache()
-        del output_dataset
+        with rasterio.open(output_MBIname, 'w', **metadata) as mbi_dst:
+            mbi_dst.write(MBI[np.newaxis, :, :])
     
     if write_MSI:
-        input_dataset_2 = gdal.Open(input_grayfile)
-        input_band_2 = input_dataset_2.GetRasterBand(1)
-        gtiff_driver_2 = gdal.GetDriverByName('GTiff')
-        output_dataset_2 = gtiff_driver_2.Create(output_MSIname, input_band_2.XSize, input_band_2.YSize, 1, gdal.GDT_Float32)
-        output_dataset_2.SetProjection(input_dataset_2.GetProjection())
-        output_dataset_2.SetGeoTransform(input_dataset_2.GetGeoTransform())
-        output_dataset_2.GetRasterBand(1).WriteArray(MSI)
-    
-        output_dataset_2.FlushCache()
-        del output_dataset_2
+        with rasterio.open(output_MSIname, 'w', **metadata) as msi_dst:
+            msi_dst.write(MSI[np.newaxis, :, :])
     
     if calc_MSI:    
         return MBI, MSI
